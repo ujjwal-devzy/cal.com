@@ -2,11 +2,16 @@
 
 import classNames from "@calcom/ui/classNames";
 import * as Popover from "@radix-ui/react-popover";
-import { format, isBefore, isSameDay } from "date-fns";
-import { type HTMLAttributes, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { type HTMLAttributes, useState } from "react";
 import { Button } from "../../button";
 import { Calendar } from "./Calendar";
-import { calculateNewDateRange } from "./dateRangeLogic";
+import {
+  calculateHoverDateRange,
+  calculateNewDateRange,
+  getDateRangeDisplayText,
+  normalizeDateRange,
+} from "./dateRangeLogic";
 
 type DatePickerWithRangeProps = {
   dates: { startDate?: Date; endDate?: Date };
@@ -21,6 +26,10 @@ type DatePickerWithRangeProps = {
   "data-testid"?: string;
   strictlyBottom?: boolean;
   allowPastDates?: boolean;
+  closeOnRangeComplete?: boolean;
+  dateFormatter?: (date: Date) => string;
+  placeholderText?: string;
+  pendingEndDateText?: string;
 };
 
 export function DatePickerWithRange({
@@ -37,21 +46,48 @@ export function DatePickerWithRange({
   "data-testid": testId,
   strictlyBottom,
   allowPastDates = false,
+  closeOnRangeComplete = false,
+  dateFormatter = (date) => format(date, "LLL dd, y"),
+  placeholderText = "Pick a date",
+  pendingEndDateText = "End",
 }: HTMLAttributes<HTMLDivElement> & DatePickerWithRangeProps) {
   const [hoveredDate, setHoveredDate] = useState<Date | undefined>(undefined);
+  const [internalPopoverOpen, setInternalPopoverOpen] = useState(false);
+
+  const normalizedDates = normalizeDateRange({
+    startDate: dates.startDate,
+    endDate: dates.endDate,
+    minDate,
+    maxDate,
+  });
+
+  function setPopoverOpen(open: boolean) {
+    if (popoverOpen === undefined) {
+      setInternalPopoverOpen(open);
+    }
+    onPopoverOpenChange?.(open);
+  }
 
   function handleDayClick(date: Date) {
-    const newDates = calculateNewDateRange({
-      startDate: dates.startDate,
-      endDate: dates.endDate,
-      clickedDate: date,
+    const newDates = normalizeDateRange({
+      ...calculateNewDateRange({
+        startDate: normalizedDates.startDate,
+        endDate: normalizedDates.endDate,
+        clickedDate: date,
+      }),
+      minDate,
+      maxDate,
     });
     onDatesChange(newDates);
     setHoveredDate(undefined);
+
+    if (closeOnRangeComplete && newDates.startDate && newDates.endDate && !withoutPopover) {
+      setPopoverOpen(false);
+    }
   }
 
   function handleDayMouseEnter(date: Date) {
-    if (dates.startDate && !dates.endDate) {
+    if (normalizedDates.startDate && !normalizedDates.endDate) {
       setHoveredDate(date);
     }
   }
@@ -62,18 +98,21 @@ export function DatePickerWithRange({
 
   const fromDate = allowPastDates && minDate === null ? undefined : (minDate ?? new Date());
 
-  const hoverRangeModifier = useMemo(() => {
-    if (!dates.startDate || dates.endDate || !hoveredDate) {
-      return undefined;
-    }
-    if (isSameDay(dates.startDate, hoveredDate)) {
-      return undefined;
-    }
-    if (isBefore(hoveredDate, dates.startDate)) {
-      return { from: hoveredDate, to: dates.startDate };
-    }
-    return { from: dates.startDate, to: hoveredDate };
-  }, [dates.startDate, dates.endDate, hoveredDate]);
+  const hoverRangeModifier = calculateHoverDateRange({
+    startDate: normalizedDates.startDate,
+    endDate: normalizedDates.endDate,
+    hoveredDate,
+  });
+
+  const dateRangeDisplayText = getDateRangeDisplayText({
+    startDate: normalizedDates.startDate,
+    endDate: normalizedDates.endDate,
+    dateFormatter,
+    placeholderText,
+    pendingEndDateText,
+  });
+
+  const resolvedPopoverOpen = popoverOpen ?? internalPopoverOpen;
 
   const calendar = (
     <Calendar
@@ -81,8 +120,8 @@ export function DatePickerWithRange({
       fromDate={fromDate}
       toDate={maxDate}
       mode="range"
-      defaultMonth={dates?.startDate}
-      selected={{ from: dates?.startDate, to: dates?.endDate }}
+      defaultMonth={normalizedDates.startDate}
+      selected={{ from: normalizedDates.startDate, to: normalizedDates.endDate }}
       onDayClick={(day) => handleDayClick(day)}
       onDayMouseEnter={handleDayMouseEnter}
       onDayMouseLeave={handleDayMouseLeave}
@@ -101,24 +140,14 @@ export function DatePickerWithRange({
   return (
     <div className={classNames("grid gap-2", className)}>
       {/* modal prop required for iOS compatibility when nested inside Dialog modals */}
-      <Popover.Root modal={popoverModal} open={popoverOpen} onOpenChange={onPopoverOpenChange}>
+      <Popover.Root modal={popoverModal} open={resolvedPopoverOpen} onOpenChange={setPopoverOpen}>
         <Popover.Trigger asChild>
           <Button
             data-testid="date-range"
             color="secondary"
             EndIcon="calendar"
-            className={classNames("justify-between text-left font-normal", !dates && "text-subtle")}>
-            {dates?.startDate ? (
-              dates?.endDate ? (
-                <>
-                  {format(dates.startDate, "LLL dd, y")} - {format(dates.endDate, "LLL dd, y")}
-                </>
-              ) : (
-                <>{format(dates.startDate, "LLL dd, y")} - End</>
-              )
-            ) : (
-              <span>Pick a date</span>
-            )}
+            className={classNames("justify-between text-left font-normal", !normalizedDates.startDate && "text-subtle")}>
+            <span>{dateRangeDisplayText}</span>
           </Button>
         </Popover.Trigger>
         <Popover.Portal>
@@ -129,7 +158,7 @@ export function DatePickerWithRange({
             side={strictlyBottom ? "bottom" : undefined}
             avoidCollisions={!strictlyBottom}
             onInteractOutside={(event) => {
-              if (dates?.startDate && !dates?.endDate) {
+              if (normalizedDates.startDate && !normalizedDates.endDate) {
                 event.preventDefault();
               }
             }}>

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 
-import { calculateNewDateRange } from "./dateRangeLogic";
+import {
+  calculateHoverDateRange,
+  calculateNewDateRange,
+  getDateRangeDisplayText,
+  normalizeDateRange,
+} from "./dateRangeLogic";
 
 describe("calculateNewDateRange", () => {
   // Helper dates for testing
@@ -186,5 +191,184 @@ describe("calculateNewDateRange", () => {
         endDate: date3,
       });
     });
+  });
+});
+
+describe("calculateHoverDateRange", () => {
+  const date1 = new Date("2024-01-01");
+  const date2 = new Date("2024-01-10");
+  const date3 = new Date("2024-01-20");
+
+  it("returns undefined when start date is not set", () => {
+    const result = calculateHoverDateRange({
+      startDate: undefined,
+      endDate: undefined,
+      hoveredDate: date2,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when range is already complete", () => {
+    const result = calculateHoverDateRange({
+      startDate: date1,
+      endDate: date2,
+      hoveredDate: date3,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when hovered date is not set", () => {
+    const result = calculateHoverDateRange({
+      startDate: date1,
+      endDate: undefined,
+      hoveredDate: undefined,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when hovered date matches start date exactly", () => {
+    const result = calculateHoverDateRange({
+      startDate: date1,
+      endDate: undefined,
+      hoveredDate: new Date("2024-01-01"),
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("creates a forward hover range when hovered date is after start date", () => {
+    const result = calculateHoverDateRange({
+      startDate: date1,
+      endDate: undefined,
+      hoveredDate: date2,
+    });
+
+    expect(result).toEqual({ from: date1, to: date2 });
+  });
+
+  it("creates a reversed hover range when hovered date is before start date", () => {
+    const result = calculateHoverDateRange({
+      startDate: date2,
+      endDate: undefined,
+      hoveredDate: date1,
+    });
+
+    expect(result).toEqual({ from: date1, to: date2 });
+  });
+});
+
+describe("getDateRangeDisplayText", () => {
+  const date1 = new Date("2024-01-01");
+  const date2 = new Date("2024-01-10");
+
+  const dateFormatter = (date: Date) => date.toISOString().slice(0, 10);
+
+  it("returns pick a date text when no start date exists", () => {
+    const result = getDateRangeDisplayText({
+      startDate: undefined,
+      endDate: undefined,
+      dateFormatter,
+    });
+
+    expect(result).toBe("Pick a date");
+  });
+
+  it("returns start date and end placeholder when only start date exists", () => {
+    const result = getDateRangeDisplayText({
+      startDate: date1,
+      endDate: undefined,
+      dateFormatter,
+    });
+
+    expect(result).toBe("2024-01-01 - End");
+  });
+
+  it("returns full formatted date range when both dates exist", () => {
+    const result = getDateRangeDisplayText({
+      startDate: date1,
+      endDate: date2,
+      dateFormatter,
+    });
+
+    expect(result).toBe("2024-01-01 - 2024-01-10");
+  });
+
+  it("supports custom placeholder and pending end text", () => {
+    const emptyResult = getDateRangeDisplayText({
+      startDate: undefined,
+      endDate: undefined,
+      dateFormatter,
+      placeholderText: "Choose dates",
+      pendingEndDateText: "Until",
+    });
+
+    const partialResult = getDateRangeDisplayText({
+      startDate: date1,
+      endDate: undefined,
+      dateFormatter,
+      placeholderText: "Choose dates",
+      pendingEndDateText: "Until",
+    });
+
+    expect(emptyResult).toBe("Choose dates");
+    expect(partialResult).toBe("2024-01-01 - Until");
+  });
+});
+
+describe("normalizeDateRange", () => {
+  const date1 = new Date("2024-01-01");
+  const date2 = new Date("2024-01-10");
+  const date3 = new Date("2024-01-20");
+
+  it("returns empty range when both dates are missing", () => {
+    const result = normalizeDateRange({
+      startDate: undefined,
+      endDate: undefined,
+    });
+
+    expect(result).toEqual({ startDate: undefined, endDate: undefined });
+  });
+
+  it("normalizes an end-only range to start-only", () => {
+    const result = normalizeDateRange({
+      startDate: undefined,
+      endDate: date2,
+    });
+
+    expect(result).toEqual({ startDate: date2, endDate: undefined });
+  });
+
+  it("swaps dates when end date is before start date", () => {
+    const result = normalizeDateRange({
+      startDate: date3,
+      endDate: date1,
+    });
+
+    expect(result).toEqual({ startDate: date1, endDate: date3 });
+  });
+
+  it("clamps both dates inside min and max bounds", () => {
+    const result = normalizeDateRange({
+      startDate: date1,
+      endDate: date3,
+      minDate: date2,
+      maxDate: date2,
+    });
+
+    expect(result).toEqual({ startDate: date2, endDate: date2 });
+  });
+
+  it("keeps valid ranges unchanged", () => {
+    const result = normalizeDateRange({
+      startDate: date1,
+      endDate: date2,
+      minDate: new Date("2023-12-01"),
+      maxDate: new Date("2024-12-31"),
+    });
+
+    expect(result).toEqual({ startDate: date1, endDate: date2 });
   });
 });
