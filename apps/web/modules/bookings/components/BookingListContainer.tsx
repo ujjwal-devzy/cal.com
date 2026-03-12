@@ -29,6 +29,7 @@ import {
 import type { BookingListingStatus, BookingsGetOutput, RowData } from "../types";
 import { BookingDetailsSheet } from "./BookingDetailsSheet";
 import { BookingList } from "./BookingList";
+import { SmartAvailabilitySummary } from "./SmartAvailabilitySummary";
 import { ViewToggleButton } from "./ViewToggleButton";
 
 interface FilterButtonProps {
@@ -204,6 +205,7 @@ function BookingListInner({
           <DataTableSegment.SaveButton />
         </div>
       )}
+      <SmartAvailabilitySummary timeZone={user?.timeZone} />
       {status === "upcoming" && !isEmpty && (
         <WipeMyCalActionButton className="mt-4" bookingStatus={status} bookingsEmpty={isEmpty} />
       )}

@@ -14,6 +14,7 @@ import { ZGetBookingAttendeesInputSchema } from "./getBookingAttendees.schema";
 import { ZGetBookingDetailsInputSchema } from "./getBookingDetails.schema";
 import { ZGetBookingHistoryInputSchema } from "./getBookingHistory.schema";
 import { ZInstantBookingInputSchema } from "./getInstantBookingLocation.schema";
+import { ZGetSmartAvailabilitySummaryInputSchema } from "./getSmartAvailabilitySummary.schema";
 import { ZGetRoutingTraceInputSchema } from "./getRoutingTrace.schema";
 import { ZGetWrongAssignmentReportsInputSchema } from "./getWrongAssignmentReports.schema";
 import { ZHasWrongAssignmentReportInputSchema } from "./hasWrongAssignmentReport.schema";
@@ -31,6 +32,16 @@ export const bookingsRouter = router({
       input,
     });
   }),
+  getSmartAvailabilitySummary: authedProcedure
+    .input(ZGetSmartAvailabilitySummaryInputSchema)
+    .query(async ({ input, ctx }) => {
+      const { getSmartAvailabilitySummaryHandler } = await import("./getSmartAvailabilitySummary.handler");
+
+      return getSmartAvailabilitySummaryHandler({
+        ctx,
+        input,
+      });
+    }),
 
   requestReschedule: authedProcedure.input(ZRequestRescheduleInputSchema).mutation(async ({ input, ctx }) => {
     const { requestRescheduleHandler } = await import("./requestReschedule.handler");
