@@ -1,9 +1,14 @@
 // forDisplayingInput is used to allow user to type "-" at the end and not replace with empty space.
 // For eg:- "test-slug" is the slug user wants to set but while typing "test-" would get replace to "test" becauser of replace(/-+$/, "")
 
-export const slugify = (str: string, forDisplayingInput?: boolean) => {
+export interface SlugifyResult {
+  slug: string;
+  isModified: boolean;
+}
+
+export const slugify = (str: string, forDisplayingInput?: boolean): SlugifyResult => {
   if (!str) {
-    return "";
+    return { slug: "", isModified: false };
   }
 
   const s = str
@@ -25,7 +30,8 @@ export const slugify = (str: string, forDisplayingInput?: boolean) => {
     .replace(/\s+/g, " ")
     .replace(/-+/g, "-"); // Replace consecutive dashes with a single dash
 
-  return forDisplayingInput ? s : s.replace(/-+$/, "").replace(/\.*$/, ""); // Remove dashes and period from end
+  const slug = forDisplayingInput ? s : s.replace(/-+$/, "").replace(/\.*$/, ""); // Remove dashes and period from end
+  return { slug, isModified: slug !== str };
 };
 
 export default slugify;
